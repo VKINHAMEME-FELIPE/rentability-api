@@ -1,16 +1,9 @@
-// api/rate/today/route.js
 import express from 'express';
 import { createPool } from '@vercel/postgres';
-import Binance from 'node-binance-api';
+import { getFuturesProfitPercentage } from '../../utils/binance.js';
 
 const router = express.Router();
 const pool = createPool({ connectionString: process.env.DATABASE_URL });
-const binance = new Binance().options({
-  APIKEY: process.env.BINANCE_API_KEY,
-  APISECRET: process.env.BINANCE_API_SECRET,
-  useServerTime: true,
-  recvWindow: 60000,
-});
 
 router.get('/', async (req, res) => {
   const { unique_code } = req.query;
@@ -25,11 +18,7 @@ router.get('/', async (req, res) => {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
 
-    const account = await binance.futuresAccount();
-    const totalWalletBalance = parseFloat(account.totalWalletBalance || 0);
-    const totalUnrealizedProfit = parseFloat(account.totalUnrealizedProfit || 0);
-    let profitPercentage = totalWalletBalance > 0 ? totalUnrealizedProfit / totalWalletBalance : 0;
-
+    let profitPercentage = await getFuturesProfitPercentage();
     profitPercentage = Math.max(profitPercentage, 0.001); // mínimo 0.1%
     profitPercentage = Math.min(profitPercentage, 0.01);  // máximo 1%
 
