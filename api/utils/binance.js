@@ -1,39 +1,28 @@
 import crypto from 'crypto';
+import axios from 'axios';
 
-export async function getBinanceRentability(apiKey, secretKey) {
-  const timestamp = Date.now();
-  const query = `timestamp=${timestamp}`;
-  const signature = crypto.createHmac('sha256', secretKey).update(query).digest('hex');
+const API_KEY = process.env.API_KEY;
+const API_SECRET = process.env.API_SECRET;
+const API_URL = 'https://fapi.binance.com';
 
-  const res = await fetch(`https://fapi.binance.com/fapi/v2/account?${query}&signature=${signature}`, {
-    headers: { 'X-MBX-APIKEY': apiKey },
-  });
-
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.msg || 'Erro Binance');
-
-  const totalWalletBalance = parseFloat(data.totalWalletBalance);
-  const totalUnrealizedProfit = parseFloat(data.totalUnrealizedProfit);
-
-  return {
-    walletBalance: totalWalletBalance,
-    unrealizedProfit: totalUnrealizedProfit,
-  };
-}
-
-export async function getFuturesProfit() {
+export async function getFuturesProfitPercentage() {
   try {
-    const apiKey = process.env.API_KEY;
-    const secretKey = process.env.API_SECRET;
-    if (!apiKey || !secretKey) {
-      throw new Error('Missing Binance API credentials');
-    }
-    const { walletBalance, unrealizedProfit } = await getBinanceRentability(apiKey, secretKey);
-    if (walletBalance === 0) return 0;
-    const profitPercentage = (unrealizedProfit / walletBalance); // e.g., 0.003 for 0.3%
+    const timestamp = Date.now();
+    const queryString = `timestamp=${timestamp}`;
+    const signature = crypto
+      .createHmac('sha256', API_SECRET)
+      .update(queryString)
+      .digest('hex');
+
+    const response = await axios.get(`${API_URL}/fapi/v2/account?${queryString}&signature=${signature}`, {
+      headers: { 'X-MBX-APIKEY': API_KEY },
+    });
+
+    const { totalWalletBalance, totalUnrealizedProfit } = response.data;
+    const profitPercentage = (parseFloat(totalUnrealizedProfit) / parseFloat(totalWalletBalance)) * 100;
     return profitPercentage;
   } catch (error) {
-    console.error('Error fetching futures profit:', error);
+    console.error('Error fetching futures profit:', error.message);
     return 0; // Fallback to avoid API failure
   }
 }
