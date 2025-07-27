@@ -1,3 +1,4 @@
+
 import Binance from 'node-binance-api';
 
 const binance = new Binance().options({
@@ -17,9 +18,10 @@ export async function getFuturesProfitPercentage() {
       ? (totalUnrealizedProfit / totalWalletBalance) * 100
       : 0;
 
-    return parseFloat(profitPercentage.toFixed(4)); // Sem limitar
+    console.log(`💹 Rentabilidade bruta Binance: ${profitPercentage.toFixed(4)}%`);
+    return parseFloat(profitPercentage.toFixed(4));
   } catch (error) {
-    console.error('Erro ao buscar dados da Binance:', error.message);
-    return 0.15; // Fallback fixo: 0.15%
+    console.error('❌ Erro ao buscar dados da Binance:', error.message);
+    return 0.15; // fallback em porcentagem
   }
 }
