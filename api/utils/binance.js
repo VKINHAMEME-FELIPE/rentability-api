@@ -1,28 +1,29 @@
-import crypto from 'crypto';
-import axios from 'axios';
+import Binance from 'node-binance-api';
 
-const API_KEY = process.env.API_KEY;
-const API_SECRET = process.env.API_SECRET;
-const API_URL = 'https://fapi.binance.com';
+const binance = new Binance().options({
+  APIKEY: process.env.API_KEY,
+  APISECRET: process.env.API_SECRET,
+  useServerTime: true,
+  recvWindow: 60000,
+});
 
 export async function getFuturesProfitPercentage() {
   try {
-    const timestamp = Date.now();
-    const queryString = `timestamp=${timestamp}`;
-    const signature = crypto
-      .createHmac('sha256', API_SECRET)
-      .update(queryString)
-      .digest('hex');
+    const account = await binance.futuresAccount();
+    const totalWalletBalance = parseFloat(account.totalWalletBalance || 0);
+    const totalUnrealizedProfit = parseFloat(account.totalUnrealizedProfit || 0);
 
-    const response = await axios.get(`${API_URL}/fapi/v2/account?${queryString}&signature=${signature}`, {
-      headers: { 'X-MBX-APIKEY': API_KEY },
-    });
+    let profitPercentage = totalWalletBalance > 0
+      ? (totalUnrealizedProfit / totalWalletBalance) * 100
+      : 0;
 
-    const { totalWalletBalance, totalUnrealizedProfit } = response.data;
-    const profitPercentage = (parseFloat(totalUnrealizedProfit) / parseFloat(totalWalletBalance)) * 100;
-    return profitPercentage;
+    // Limites de 0.1% a 1%
+    profitPercentage = Math.max(profitPercentage, 0.001);
+    profitPercentage = Math.min(profitPercentage, 0.01);
+
+    return parseFloat(profitPercentage.toFixed(4));
   } catch (error) {
-    console.error('Error fetching futures profit:', error.message);
-    return 0; // Fallback to avoid API failure
+    console.error('Erro ao buscar dados da Binance:', error.message);
+    return 0.0015; // Fallback
   }
 }
