@@ -13,17 +13,13 @@ export async function getFuturesProfitPercentage() {
     const totalWalletBalance = parseFloat(account.totalWalletBalance || 0);
     const totalUnrealizedProfit = parseFloat(account.totalUnrealizedProfit || 0);
 
-    let profitPercentage = totalWalletBalance > 0
+    const profitPercentage = totalWalletBalance > 0
       ? (totalUnrealizedProfit / totalWalletBalance) * 100
       : 0;
 
-    // Limites de 0.1% a 1%
-    profitPercentage = Math.max(profitPercentage, 0.001);
-    profitPercentage = Math.min(profitPercentage, 0.01);
-
-    return parseFloat(profitPercentage.toFixed(4));
+    return parseFloat(profitPercentage.toFixed(4)); // Sem limitar
   } catch (error) {
     console.error('Erro ao buscar dados da Binance:', error.message);
-    return 0.0015; // Fallback
+    return 0.15; // Fallback fixo: 0.15%
   }
 }
