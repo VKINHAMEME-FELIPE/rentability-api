@@ -1,8 +1,8 @@
 // api/balance/route.js
 import express from 'express';
 import { createPool } from '@vercel/postgres';
-import { getTierPercentage } from '../../utils/tier.js';
-import { getFuturesProfitPercentage } from '../../utils/binance.js';
+import { getTierPercentage } from '../utils/tier.js';
+import { getFuturesProfitPercentage } from '../utils/binance.js';
 
 const router = express.Router();
 const pool = createPool({ connectionString: process.env.DATABASE_URL });
