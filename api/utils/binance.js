@@ -1,9 +1,12 @@
-import Binance from '@binance/connector';
+import binance from '@binance/connector';
 
 const API_KEY = process.env.BINANCE_API_KEY;
 const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
-const client = new Binance().futures({ apiKey: API_KEY, apiSecret: API_SECRET });
+const client = binance.futures({
+  apiKey: API_KEY,
+  apiSecret: API_SECRET
+});
 
 export async function getFuturesProfitPercentage() {
   try {
@@ -13,7 +16,7 @@ export async function getFuturesProfitPercentage() {
     const startTime = today.getTime();
     const endTime = startTime + 86400000;
 
-    console.log(`🟡 [BINANCE] PnL de ${new Date(startTime).toISOString()} até ${new Date(endTime).toISOString()}`);
+    console.log(`🟡 [BINANCE] Período: ${new Date(startTime).toISOString()} → ${new Date(endTime).toISOString()}`);
 
     const incomeResponse = await client.getIncomeHistory({
       incomeType: 'REALIZED_PNL',
@@ -22,31 +25,30 @@ export async function getFuturesProfitPercentage() {
       limit: 1000
     });
 
-    const incomeList = incomeResponse?.data || [];
-    console.log(`🟡 [INCOME] Registros: ${incomeList.length}`);
+    const incomeList = incomeResponse.data || [];
+    console.log(`🟡 [INCOME] Entradas: ${incomeList.length}`);
 
     let totalRealized = 0;
     for (const item of incomeList) {
       const income = parseFloat(item.income || 0);
-      const time = new Date(item.time).toISOString();
-      console.log(`🔍 ${item.symbol} | income: ${income} | time: ${time}`);
+      console.log(`🔍 ${item.symbol} | income: ${income} | ${new Date(item.time).toISOString()}`);
       totalRealized += income;
     }
 
     const balanceRes = await client.getBalance();
-    const wallet = balanceRes?.data?.find(item => item.asset === 'USDT');
+    const wallet = balanceRes.data.find(item => item.asset === 'USDT');
     const walletBalance = parseFloat(wallet?.balance || 0);
 
-    console.log(`🟢 [BALANCE] USDT: ${walletBalance}`);
+    console.log(`🟢 [BALANCE] Wallet USDT: ${walletBalance}`);
 
     const percent = walletBalance > 0 ? (totalRealized / walletBalance) * 100 : 0;
-
     console.log(`💹 Resultado: $${totalRealized.toFixed(2)} (${percent.toFixed(4)}%)`);
+
     return percent > 0 ? parseFloat(percent.toFixed(4)) : 0;
   } catch (error) {
-    console.error('❌ [ERRO GERAL]', error.message);
+    console.error('❌ Erro:', error.message);
     if (error.response?.data) {
-      console.error('❌ [ERRO API]:', error.response.data);
+      console.error('❌ Detalhes API:', error.response.data);
     }
     return 0;
   }
