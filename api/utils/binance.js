@@ -1,8 +1,6 @@
-// ✅ binance.js atualizado para puxar a rentabilidade real da Binance
-// Suporte à conta de futuros USDT-M com fallback seguro e logs detalhados
-
+// utils/binance.js
 import pkg from 'binance-futures-connector';
-const { USDMClient } = pkg;
+const USDMClient = pkg.USDMClient || pkg.default?.USDMClient;
 
 const client = new USDMClient({
   api_key: process.env.BINANCE_API_KEY,
