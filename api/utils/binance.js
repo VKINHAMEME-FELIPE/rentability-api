@@ -1,11 +1,12 @@
-import binance from '@binance/connector';
+import pkg from 'binance-futures-connector';
+const { USDMClient } = pkg;
 
 const API_KEY = process.env.BINANCE_API_KEY;
 const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
-const client = binance.futures({
-  apiKey: API_KEY,
-  apiSecret: API_SECRET
+const client = new USDMClient({
+  api_key: API_KEY,
+  api_secret: API_SECRET
 });
 
 export async function getFuturesProfitPercentage() {
@@ -16,39 +17,38 @@ export async function getFuturesProfitPercentage() {
     const startTime = today.getTime();
     const endTime = startTime + 86400000;
 
-    console.log(`🟡 [BINANCE] Período: ${new Date(startTime).toISOString()} → ${new Date(endTime).toISOString()}`);
+    console.log(`🟡 [LOG-INCOME] Buscando Realized PnL de ${new Date(startTime).toISOString()} até ${new Date(endTime).toISOString()}`);
 
     const incomeResponse = await client.getIncomeHistory({
       incomeType: 'REALIZED_PNL',
       startTime,
-      endTime,
-      limit: 1000
+      endTime
     });
 
-    const incomeList = incomeResponse.data || [];
-    console.log(`🟡 [INCOME] Entradas: ${incomeList.length}`);
+    const incomeList = incomeResponse || [];
+    console.log(`🟡 [LOG-INCOME] Itens recebidos: ${incomeList.length}`);
 
     let totalRealized = 0;
     for (const item of incomeList) {
       const income = parseFloat(item.income || 0);
-      console.log(`🔍 ${item.symbol} | income: ${income} | ${new Date(item.time).toISOString()}`);
+      console.log(`🔍 PnL ${item.symbol} = ${income} em ${new Date(item.time).toISOString()}`);
       totalRealized += income;
     }
 
-    const balanceRes = await client.getBalance();
-    const wallet = balanceRes.data.find(item => item.asset === 'USDT');
-    const walletBalance = parseFloat(wallet?.balance || 0);
+    const accountInfo = await client.getBalance();
+    const usdtWallet = accountInfo?.find((item) => item.asset === 'USDT');
+    const walletBalance = parseFloat(usdtWallet?.balance || 0);
 
-    console.log(`🟢 [BALANCE] Wallet USDT: ${walletBalance}`);
+    console.log(`🟢 [LOG-BALANCE] Wallet USDT: ${walletBalance}`);
 
     const percent = walletBalance > 0 ? (totalRealized / walletBalance) * 100 : 0;
-    console.log(`💹 Resultado: $${totalRealized.toFixed(2)} (${percent.toFixed(4)}%)`);
+    console.log(`💹 [RESULTADO FINAL] Realized PnL de hoje: $${totalRealized.toFixed(2)} (${percent.toFixed(4)}%)`);
 
     return percent > 0 ? parseFloat(percent.toFixed(4)) : 0;
-  } catch (error) {
-    console.error('❌ Erro:', error.message);
-    if (error.response?.data) {
-      console.error('❌ Detalhes API:', error.response.data);
+  } catch (err) {
+    console.error('❌ [ERRO GERAL]', err?.message);
+    if (err?.response?.data) {
+      console.error('❌ [ERRO RESPONSE]', err.response.data);
     }
     return 0;
   }
