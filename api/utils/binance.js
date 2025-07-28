@@ -27,9 +27,10 @@ export async function getFuturesProfitPercentage() {
     const profitPercentage =
       totalWalletBalance > 0 ? (totalRealized / totalWalletBalance) * 100 : 0;
 
+    // Log the actual values, including negatives
     console.log(`💹 Realized PnL de hoje: $${totalRealized.toFixed(2)} (${profitPercentage.toFixed(4)}%)`);
 
-    // Só retornar valor positivo para a API
+    // Return 0 for non-positive values for API consistency
     if (profitPercentage <= 0) return 0;
 
     return parseFloat(profitPercentage.toFixed(4));
