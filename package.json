@@ -10,6 +10,7 @@
   "dependencies": {
     "@vercel/postgres": "latest",
     "axios": "^1.11.0",
+    "binance-futures-connector": "^1.4.6",
     "ccxt": "^4.4.96",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
