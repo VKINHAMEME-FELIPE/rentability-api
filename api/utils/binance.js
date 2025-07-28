@@ -1,4 +1,5 @@
-import { Futures } from '@binance/connector';
+import pkg from '@binance/connector';
+const { Futures } = pkg;
 
 const API_KEY = process.env.BINANCE_API_KEY;
 const API_SECRET = process.env.BINANCE_SECRET_KEY;
