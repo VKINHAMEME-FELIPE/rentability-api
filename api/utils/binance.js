@@ -11,18 +11,28 @@ export async function getFuturesProfitPercentage() {
   try {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0); // início do dia UTC
+    console.log(`🕒 Start time for futuresIncome: ${today.toISOString()} (${today.getTime()})`);
 
+    // Fetch income data
     const incomeList = await binance.futuresIncome({
       incomeType: 'REALIZED_PNL',
       startTime: today.getTime(),
       limit: 1000,
     });
 
-    const totalRealized = incomeList.reduce((acc, item) => acc + parseFloat(item.income), 0);
+    console.log(`📊 Income list length: ${incomeList.length}`);
+    console.log(`📊 Income list sample: ${JSON.stringify(incomeList.slice(0, 2))}`);
 
-    // Obter o saldo atual da carteira para calcular a % baseada em capital real
+    const totalRealized = incomeList.reduce((acc, item) => {
+      const income = parseFloat(item.income) || 0;
+      console.log(`📈 Income item: ${JSON.stringify(item)}, Parsed income: ${income}`);
+      return acc + income;
+    }, 0);
+
+    // Fetch account data
     const account = await binance.futuresAccount();
     const totalWalletBalance = parseFloat(account.totalWalletBalance || 0);
+    console.log(`💰 Total wallet balance: $${totalWalletBalance.toFixed(2)}`);
 
     const profitPercentage =
       totalWalletBalance > 0 ? (totalRealized / totalWalletBalance) * 100 : 0;
@@ -36,6 +46,7 @@ export async function getFuturesProfitPercentage() {
     return parseFloat(profitPercentage.toFixed(4));
   } catch (error) {
     console.error('❌ Erro ao buscar Realized PnL:', error.message);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
     return 0;
   }
 }
