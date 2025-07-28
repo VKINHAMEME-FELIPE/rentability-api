@@ -1,40 +1,44 @@
-import ccxt from 'ccxt';
+import axios from 'axios';
+import crypto from 'crypto';
 
-const binance = new ccxt.binance({
-  apiKey: process.env.BINANCE_API_KEY,
-  secret: process.env.BINANCE_SECRET_KEY,
-  enableRateLimit: true,
-});
+const API_KEY = process.env.BINANCE_API_KEY;
+const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
 export async function getFuturesProfitPercentage() {
   try {
+    const baseUrl = 'https://fapi.binance.com';
+    const endpoint = '/fapi/v1/income';
+
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    const startTime = today.getTime() - 3600000; // Subtrai 1 hora
-    console.log(`🕒 Start time for futuresIncome: ${today.toISOString()} (${startTime})`);
+    const startTime = today.getTime();
 
-    // Buscar histórico de transações para futuros em USDC
-    const incomeList = await binance.publicGetFapiV2Income({
-      incomeType: 'REALIZED_PNL',
-      startTime: startTime,
-      limit: 1000,
+    const params = `incomeType=REALIZED_PNL&startTime=${startTime}&timestamp=${Date.now()}`;
+    const signature = crypto
+      .createHmac('sha256', API_SECRET)
+      .update(params)
+      .digest('hex');
+
+    const url = `${baseUrl}${endpoint}?${params}&signature=${signature}`;
+
+    const response = await axios.get(url, {
+      headers: { 'X-MBX-APIKEY': API_KEY }
     });
 
-    console.log(`📊 Income list length: ${incomeList.length}`);
-    console.log(`📊 Income list sample: ${JSON.stringify(incomeList.slice(0, 2), null, 2)}`);
+    const incomeList = response.data;
 
     const totalRealized = incomeList.reduce((acc, item) => {
-      const income = parseFloat(item.income || 0);
-      console.log(`📈 Income item: ${JSON.stringify(item)}, Parsed income: ${income}`);
-      return acc + income;
+      return acc + parseFloat(item.income || 0);
     }, 0);
 
-    // Buscar saldo da conta de futuros
-    const account = await binance.fetchBalance({ type: 'future' });
-    console.log(`📊 Full account response: ${JSON.stringify(account, null, 2)}`);
+    // Buscar saldo de futuros
+    const accountInfo = await axios.get(`${baseUrl}/fapi/v2/account?timestamp=${Date.now()}&signature=${
+      crypto.createHmac('sha256', API_SECRET).update(`timestamp=${Date.now()}`).digest('hex')
+    }`, {
+      headers: { 'X-MBX-APIKEY': API_KEY }
+    });
 
-    const totalWalletBalance = parseFloat(account.USDC?.total || 0);
-    console.log(`💰 USDC wallet balance: $${totalWalletBalance.toFixed(2)}`);
+    const totalWalletBalance = parseFloat(accountInfo.data.totalWalletBalance || 0);
 
     const profitPercentage =
       totalWalletBalance > 0 ? (totalRealized / totalWalletBalance) * 100 : 0;
@@ -45,7 +49,6 @@ export async function getFuturesProfitPercentage() {
     return parseFloat(profitPercentage.toFixed(4));
   } catch (error) {
     console.error('❌ Erro ao buscar Realized PnL:', error.message);
-    console.error('❌ Error details:', JSON.stringify(error, null, 2));
     return 0;
   }
 }
