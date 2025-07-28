@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@binance/connector": "^3.6.1",
     "@vercel/postgres": "latest",
     "axios": "^1.11.0",
     "binance-futures-connector": "^1.4.6",
