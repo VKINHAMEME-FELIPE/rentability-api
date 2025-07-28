@@ -6,7 +6,7 @@ const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
 export async function getFuturesProfitPercentage() {
   try {
-    const baseUrl = 'https://fapi.binance.com'; // USDT-M Futures
+    const baseUrl = 'https://fapi.binance.com';
     const endpoint = '/fapi/v1/income';
 
     const now = Date.now();
@@ -15,12 +15,10 @@ export async function getFuturesProfitPercentage() {
     const startTime = today.getTime();
 
     const query = `incomeType=REALIZED_PNL&startTime=${startTime}&timestamp=${now}`;
-    const signature = crypto
-      .createHmac('sha256', API_SECRET)
-      .update(query)
-      .digest('hex');
-
+    const signature = crypto.createHmac('sha256', API_SECRET).update(query).digest('hex');
     const url = `${baseUrl}${endpoint}?${query}&signature=${signature}`;
+
+    console.log(`🟡 [LOG] URL chamada: ${url}`);
 
     const response = await axios.get(url, {
       headers: { 'X-MBX-APIKEY': API_KEY }
@@ -28,17 +26,16 @@ export async function getFuturesProfitPercentage() {
 
     const incomeList = response.data || [];
 
+    console.log(`🟡 [LOG] Itens recebidos do income:`, incomeList);
+
     const totalRealized = incomeList.reduce((acc, item) => {
-      return acc + parseFloat(item.income || 0);
+      const income = parseFloat(item.income || 0);
+      console.log(`🔍 income entry: symbol=${item.symbol} | income=${income} | time=${new Date(item.time).toISOString()}`);
+      return acc + income;
     }, 0);
 
-    // Buscar saldo da carteira de futuros
     const accQuery = `timestamp=${now}`;
-    const accSignature = crypto
-      .createHmac('sha256', API_SECRET)
-      .update(accQuery)
-      .digest('hex');
-
+    const accSignature = crypto.createHmac('sha256', API_SECRET).update(accQuery).digest('hex');
     const accUrl = `${baseUrl}/fapi/v2/account?${accQuery}&signature=${accSignature}`;
 
     const accResponse = await axios.get(accUrl, {
@@ -50,7 +47,6 @@ export async function getFuturesProfitPercentage() {
 
     console.log(`💹 Realized PnL de hoje: $${totalRealized.toFixed(2)} (${percent.toFixed(4)}%)`);
 
-    // Para o FRONT-END só retorna se for positivo
     return percent > 0 ? parseFloat(percent.toFixed(4)) : 0;
   } catch (error) {
     console.error('❌ Erro ao buscar Realized PnL:', error.message);
