@@ -1,54 +1,51 @@
-import { createPool } from '@vercel/postgres';
-import { NextResponse } from 'next/server';
-import { getFuturesProfitPercentage } from '../../utils/binance.js';
-import { getTierPercentage, getTierTypeFromCode } from '../../utils/tier.js';
+import ccxt from 'ccxt';
 
-const pool = createPool({ connectionString: process.env.POSTGRES_URL });
+const binance = new ccxt.binance({
+  apiKey: process.env.BINANCE_API_KEY,
+  secret: process.env.BINANCE_SECRET_KEY,
+  enableRateLimit: true,
+});
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const unique_code = searchParams.get('unique_code');
-
-  if (!unique_code) {
-    return NextResponse.json({ error: 'Código único é obrigatório' }, { status: 400 });
-  }
-
+export async function getFuturesProfitPercentage() {
   try {
-    const { rows } = await pool.sql`
-      SELECT 
-        invested_amount AS invested,
-        fgc_amount AS fgc,
-        saldo,
-        rentability_total,
-        rentability_available,
-        total_withdrawn,
-        tier_code
-      FROM user_tiers 
-      WHERE unique_code = ${unique_code}
-    `;
-    if (rows.length === 0) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const startTime = today.getTime() - 3600000; // Subtrai 1 hora
+    console.log(`🕒 Start time for futuresIncome: ${today.toISOString()} (${startTime})`);
 
-    const userData = rows[0];
-    const tierType = getTierTypeFromCode(userData.tier_code || 'I');
-    const rate = await getFuturesProfitPercentage();
-    const percentual = getTierPercentage(tierType);
-    const saldo = parseFloat(userData.saldo || 0);
-    const rendimentoHoje = (saldo * rate * percentual).toFixed(4);
+    // Buscar histórico de transações para futuros em USDC
+    const incomeList = await binance.publicGetFapiV2Income({
+      incomeType: 'REALIZED_PNL',
+      startTime: startTime,
+      limit: 1000,
+    });
 
-    return NextResponse.json({
-      saldo: userData.saldo || 0,
-      rentability_hoje: parseFloat(rendimentoHoje) > 0 ? parseFloat(rendimentoHoje) : 0,
-      rentability_total: userData.rentability_total || 0,
-      rentability_available: userData.rentability_available || 0,
-      total_sacado: userData.total_withdrawn || 0,
-      invested: userData.invested || 0,
-      fgc: userData.fgc || 0,
-      saldo_que_rende: userData.saldo || 0,
-    }, { status: 200 });
-  } catch (e) {
-    console.error('Error fetching balance:', e.message);
-    return NextResponse.json({ error: 'Erro ao buscar saldo', details: e.message }, { status: 500 });
+    console.log(`📊 Income list length: ${incomeList.length}`);
+    console.log(`📊 Income list sample: ${JSON.stringify(incomeList.slice(0, 2), null, 2)}`);
+
+    const totalRealized = incomeList.reduce((acc, item) => {
+      const income = parseFloat(item.income || 0);
+      console.log(`📈 Income item: ${JSON.stringify(item)}, Parsed income: ${income}`);
+      return acc + income;
+    }, 0);
+
+    // Buscar saldo da conta de futuros
+    const account = await binance.fetchBalance({ type: 'future' });
+    console.log(`📊 Full account response: ${JSON.stringify(account, null, 2)}`);
+
+    const totalWalletBalance = parseFloat(account.USDC?.total || 0);
+    console.log(`💰 USDC wallet balance: $${totalWalletBalance.toFixed(2)}`);
+
+    const profitPercentage =
+      totalWalletBalance > 0 ? (totalRealized / totalWalletBalance) * 100 : 0;
+
+    console.log(`💹 Realized PnL de hoje: $${totalRealized.toFixed(2)} (${profitPercentage.toFixed(4)}%)`);
+
+    if (profitPercentage <= 0) return 0;
+    return parseFloat(profitPercentage.toFixed(4));
+  } catch (error) {
+    console.error('❌ Erro ao buscar Realized PnL:', error.message);
+    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return 0;
   }
 }
