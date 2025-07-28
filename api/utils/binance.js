@@ -1,10 +1,10 @@
 import pkg from 'binance-futures-connector';
-const { USDMClient } = pkg;
+const { createUSDMClient } = pkg;
 
 const API_KEY = process.env.BINANCE_API_KEY;
 const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
-const client = new USDMClient({
+const client = createUSDMClient({
   api_key: API_KEY,
   api_secret: API_SECRET,
 });
