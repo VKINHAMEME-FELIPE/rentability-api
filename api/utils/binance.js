@@ -1,10 +1,10 @@
 import pkg from 'binance-futures-connector';
-const { USDMClient } = pkg;
+const { default: BinanceFutures } = pkg;
 
 const API_KEY = process.env.BINANCE_API_KEY;
 const API_SECRET = process.env.BINANCE_SECRET_KEY;
 
-const client = new USDMClient({
+const client = new BinanceFutures({
   api_key: API_KEY,
   api_secret: API_SECRET
 });
@@ -17,7 +17,7 @@ export async function getFuturesProfitPercentage() {
     const startTime = today.getTime();
     const endTime = startTime + 86400000;
 
-    console.log(`🟡 [LOG-INCOME] Buscando Realized PnL de ${new Date(startTime).toISOString()} até ${new Date(endTime).toISOString()}`);
+    console.log(`🟡 [LOG-INCOME] Buscando Realized PnL entre: ${new Date(startTime).toISOString()} e ${new Date(endTime).toISOString()}`);
 
     const incomeResponse = await client.getIncomeHistory({
       incomeType: 'REALIZED_PNL',
