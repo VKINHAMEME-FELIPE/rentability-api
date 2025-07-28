@@ -8,50 +8,70 @@ const binance = new ccxt.binance({
 
 export async function getFuturesProfitPercentage() {
   try {
-    const startDate = new Date(Date.UTC(2025, 6, 25)); // 25/07/2025
-    startDate.setUTCHours(0, 0, 0, 0);
+    const now = Date.now();
+    const startDate = new Date('2025-07-25T00:00:00Z');
     const startTime = startDate.getTime();
+    const endTime = now;
 
-    const now = new Date();
-    const endTime = now.getTime();
-
+    console.log(`==> \n==> ///////////////////////////////////////////////////////////`);
     console.log(`🕒 [START TIME] ${startDate.toISOString()} (${startTime})`);
-    console.log(`🕒 [END TIME] ${now.toISOString()} (${endTime})`);
+    console.log(`🕒 [END TIME] ${new Date(endTime).toISOString()} (${endTime})`);
+    console.log(`⚙️ [FUTURES] Buscando REALIZED_PNL acumulado...`);
+    console.log(`🔗 [FUTURES URL] https://fapi.binance.com/fapi/v1/income?incomeType=REALIZED_PNL&startTime=${startTime}&endTime=${endTime}`);
 
-    let totalRealized = 0;
+    const incomeList = await binance.fapiPrivateGetIncome({
+      incomeType: 'REALIZED_PNL',
+      startTime,
+      endTime,
+      limit: 1000,
+    });
+
+    console.log(`📊 [FUTURES] Itens recebidos: ${incomeList.length}`);
+    incomeList.slice(0, 5).forEach((item, i) => {
+      const timeStr = item.time ? new Date(item.time).toISOString() : 'Invalid date';
+      console.log(`🔍 [ITEM ${i + 1}] symbol=${item.symbol}, income=${item.income}, time=${timeStr}`);
+    });
+
+    const totalRealized = incomeList.reduce((acc, item) => {
+      const income = parseFloat(item.income || 0);
+      return acc + income;
+    }, 0);
+
+    const balance = await binance.fetchBalance({ type: 'future' });
+    const totalUSDT = parseFloat(balance.total.USDT || 0);
+    const totalUSDC = parseFloat(balance.total.USDC || 0);
+    const totalWalletBalance = totalUSDT + totalUSDC;
+
+    console.log(`💼 [FUTURES BALANCE] USDT=${totalUSDT.toFixed(2)} | USDC=${totalUSDC.toFixed(2)} | Total=${totalWalletBalance.toFixed(2)}`);
+
+    const profitPercentage = totalWalletBalance > 0
+      ? (totalRealized / totalWalletBalance) * 100
+      : 0;
+
+    console.log(`💹 [RESULTADO FINAL] Realized PnL: $${totalRealized.toFixed(2)} | Percentual: ${profitPercentage.toFixed(4)}%`);
+
+    return profitPercentage > 0 ? parseFloat(profitPercentage.toFixed(4)) : 0;
+  } catch (error) {
+    console.error(`⚠️ [FUTURES FALLBACK] Erro ao puxar PnL: ${error.message}`);
+    console.log(`⚙️ [SPOT] Tentando buscar rentabilidade da conta SPOT como fallback...`);
 
     try {
-      console.log(`⚙️ [FUTURES] Buscando REALIZED_PNL acumulado...`);
-      const income = await binance.fapiPrivateGetIncome({
-        incomeType: 'REALIZED_PNL',
-        startTime,
-        endTime,
-        limit: 1000,
-      });
+      const spotBalance = await binance.fetchBalance();
+      const totalUSDT = parseFloat(spotBalance.total.USDT || 0);
+      const totalUSDC = parseFloat(spotBalance.total.USDC || 0);
+      const freeUSDT = parseFloat(spotBalance.free.USDT || 0);
+      const freeUSDC = parseFloat(spotBalance.free.USDC || 0);
 
-      console.log(`📊 [FUTURES] Itens recebidos: ${income.length}`);
-      for (const item of income) {
-        const incomeValue = parseFloat(item.income || 0);
-        console.log(`📈 [INCOME] ${item.symbol} | income: ${incomeValue} | time: ${new Date(item.time).toISOString()}`);
-        totalRealized += incomeValue;
-      }
-    } catch (futuresError) {
-      console.warn('⚠️ [FUTURES FALLBACK] Erro ao puxar PnL:', futuresError.message);
+      const totalSpot = totalUSDT + totalUSDC;
+      const freeSpot = freeUSDT + freeUSDC;
+
+      const variation = totalSpot > 0 ? ((totalSpot - freeSpot) / totalSpot) * 100 : 0;
+
+      console.log(`📊 [SPOT] Total: ${totalSpot.toFixed(2)} | Livre: ${freeSpot.toFixed(2)} | Variação: ${variation.toFixed(4)}%`);
+      return variation > 0 ? parseFloat(variation.toFixed(4)) : 0;
+    } catch (spotError) {
+      console.error(`❌ [SPOT FALLBACK] Erro: ${spotError.message}`);
       return 0;
     }
-
-    const wallet = await binance.fetchBalance({ type: 'future' }).catch(() => null);
-    const balance = parseFloat(wallet?.total?.USDT || 0);
-
-    console.log(`💰 [WALLET] Total USDT-M: ${balance}`);
-
-    const percent = balance > 0 ? (totalRealized / balance) * 100 : 0;
-    console.log(`💹 [RESULTADO FINAL] Realized PnL acumulado: $${totalRealized.toFixed(2)} | Percentual: ${percent.toFixed(4)}%`);
-
-    return percent > 0 ? parseFloat(percent.toFixed(4)) : 0;
-  } catch (err) {
-    console.error('❌ [ERRO GERAL]', err.message);
-    console.error('❌ [DETAILS]', JSON.stringify(err, null, 2));
-    return 0;
   }
 }
