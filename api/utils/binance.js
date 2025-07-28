@@ -13,12 +13,12 @@ export async function getFuturesProfitPercentage() {
     const startTime = today.getTime() - 3600000; // Subtrai 1 hora para capturar transações
     console.log(`🕒 Start time for futuresIncome: ${today.toISOString()} (${startTime})`);
 
-    // Configurar para futuros em USDC
+
     await binance.setMarginMode('cross', 'USDC');
 
-    // Buscar histórico de lucros (REALIZED_PNL)
+
     const incomeList = await binance.fetchIncome({
-      symbol: null, // Todos os símbolos
+      symbol: null,
       since: startTime,
       limit: 1000,
       params: { incomeType: 'REALIZED_PNL' },
@@ -33,7 +33,7 @@ export async function getFuturesProfitPercentage() {
       return acc + income;
     }, 0);
 
-    // Buscar saldo da conta de futuros
+  
     const account = await binance.fetchBalance({ type: 'future', marginMode: 'cross' });
     console.log(`📊 Full account response: ${JSON.stringify(account, null, 2)}`);
 
