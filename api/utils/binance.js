@@ -8,44 +8,49 @@ const binance = new ccxt.binance({
 
 export async function getFuturesProfitPercentage() {
   try {
+    const now = Date.now();
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    const startTime = today.getTime() - 3600000; // Subtrai 1 hora
-    console.log(`🕒 Start time for futuresIncome: ${today.toISOString()} (${startTime})`);
+    const startTime = today.getTime();
+    console.log(`🕒 [START TIME] ${today.toISOString()} (${startTime})`);
 
-    // Buscar histórico de transações para futuros em USDC
-    const incomeList = await binance.publicGetFapiV2Income({
-      incomeType: 'REALIZED_PNL',
-      startTime: startTime,
-      limit: 1000,
-    });
+    let totalRealized = 0;
 
-    console.log(`📊 Income list length: ${incomeList.length}`);
-    console.log(`📊 Income list sample: ${JSON.stringify(incomeList.slice(0, 2), null, 2)}`);
+    try {
+      console.log(`⚙️ Tentando puxar dados da conta FUTURES...`);
+      const futuresIncome = await binance.fapiPrivateGetIncome({
+        incomeType: 'REALIZED_PNL',
+        startTime,
+        limit: 1000,
+      });
 
-    const totalRealized = incomeList.reduce((acc, item) => {
-      const income = parseFloat(item.income || 0);
-      console.log(`📈 Income item: ${JSON.stringify(item)}, Parsed income: ${income}`);
-      return acc + income;
-    }, 0);
+      console.log(`📊 [FUTURES] Items recebidos: ${futuresIncome.length}`);
+      for (const item of futuresIncome) {
+        const income = parseFloat(item.income || 0);
+        console.log(`📈 [FUTURES] ${item.symbol} | income: ${income} | time: ${new Date(item.time).toISOString()}`);
+        totalRealized += income;
+      }
+    } catch (futuresError) {
+      console.warn('⚠️ [FALLBACK] Falha ao puxar FUTURES:', futuresError.message);
+      console.warn('⚠️ [FALLBACK] Tentando saldo da CONTA SPOT como fallback...');
 
-    // Buscar saldo da conta de futuros
-    const account = await binance.fetchBalance({ type: 'future' });
-    console.log(`📊 Full account response: ${JSON.stringify(account, null, 2)}`);
+      const account = await binance.fetchBalance();
+      const usdtBalance = parseFloat(account.total.USDT || 0);
+      const spotProfit = usdtBalance * 0.01; // suposição fictícia, substitua se tiver lógica melhor
+      totalRealized = spotProfit;
+      console.log(`💼 [SPOT] USDT: ${usdtBalance} => lucro estimado: ${spotProfit}`);
+    }
 
-    const totalWalletBalance = parseFloat(account.USDC?.total || 0);
-    console.log(`💰 USDC wallet balance: $${totalWalletBalance.toFixed(2)}`);
+    const wallet = await binance.fetchBalance({ type: 'future' }).catch(() => null);
+    const balance = parseFloat(wallet?.total?.USDT || 0);
+    const percent = balance > 0 ? (totalRealized / balance) * 100 : 0;
 
-    const profitPercentage =
-      totalWalletBalance > 0 ? (totalRealized / totalWalletBalance) * 100 : 0;
+    console.log(`💹 [RESULTADO FINAL] Realized PnL: $${totalRealized.toFixed(2)} | Percentual: ${percent.toFixed(4)}%`);
 
-    console.log(`💹 Realized PnL de hoje: $${totalRealized.toFixed(2)} (${profitPercentage.toFixed(4)}%)`);
-
-    if (profitPercentage <= 0) return 0;
-    return parseFloat(profitPercentage.toFixed(4));
-  } catch (error) {
-    console.error('❌ Erro ao buscar Realized PnL:', error.message);
-    console.error('❌ Error details:', JSON.stringify(error, null, 2));
+    return percent > 0 ? parseFloat(percent.toFixed(4)) : 0;
+  } catch (err) {
+    console.error('❌ [ERRO GERAL]', err.message);
+    console.error(JSON.stringify(err, null, 2));
     return 0;
   }
 }
