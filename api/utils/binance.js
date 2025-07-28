@@ -1,4 +1,3 @@
-
 import Binance from 'node-binance-api';
 
 const binance = new Binance().options({
@@ -14,14 +13,25 @@ export async function getFuturesProfitPercentage() {
     const totalWalletBalance = parseFloat(account.totalWalletBalance || 0);
     const totalUnrealizedProfit = parseFloat(account.totalUnrealizedProfit || 0);
 
-    const profitPercentage = totalWalletBalance > 0
-      ? (totalUnrealizedProfit / totalWalletBalance) * 100
-      : 0;
+    // Se não tem saldo ou o lucro é negativo/nulo, retorna 0
+    if (totalWalletBalance <= 0 || totalUnrealizedProfit <= 0) {
+      console.log(`💹 Rentabilidade bruta: 0% (sem lucro válido)`);
+      return 0;
+    }
 
-    console.log(`💹 Rentabilidade bruta Binance: ${profitPercentage.toFixed(4)}%`);
-    return parseFloat(profitPercentage.toFixed(4));
+    const profitPercentage = (totalUnrealizedProfit / totalWalletBalance) * 100;
+    const formatted = parseFloat(profitPercentage.toFixed(4));
+
+    // Só retorna se for de fato positivo
+    if (formatted <= 0) {
+      console.log(`💹 Rentabilidade bruta: 0% (filtrada por segurança)`);
+      return 0;
+    }
+
+    console.log(`💹 Rentabilidade bruta Binance: ${formatted}%`);
+    return formatted;
   } catch (error) {
     console.error('❌ Erro ao buscar dados da Binance:', error.message);
-    return 0.15; // fallback em porcentagem
+    return 0;
   }
 }
