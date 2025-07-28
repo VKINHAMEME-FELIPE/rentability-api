@@ -13,8 +13,9 @@ export async function getFuturesProfitPercentage() {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
     const startTime = today.getTime();
+    const endTime = startTime + 86400000; // até fim do dia UTC
 
-    const query = `incomeType=REALIZED_PNL&startTime=${startTime}&timestamp=${now}`;
+    const query = `incomeType=REALIZED_PNL&startTime=${startTime}&endTime=${endTime}&timestamp=${now}`;
     const signature = crypto.createHmac('sha256', API_SECRET).update(query).digest('hex');
     const url = `${baseUrl}${endpoint}?${query}&signature=${signature}`;
 
